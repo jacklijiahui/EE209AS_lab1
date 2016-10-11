@@ -43,7 +43,8 @@ def DHconvention(alpha, a, theta0, d):
     T[3][3]=1;
     T=np.mat(T)
     return T;
-"""""""""""""""""""""""""""define DHconvention"""""""""""""""""""""""""""
+       
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     
 """origin state"""
 alpha = [270,0,0,0]
@@ -58,7 +59,9 @@ Target = [0,15,16]
 #constrain of theta
 theta_limit=[[180.0,360.0],[180.0,360.0],[0,180.0],[180,360.0]] 
 
-theta0 = sym.Symbol('theta0')  
+
+"""""""""""""""""""""  To find the Jacobian """""""""""""""""""""
+theta0 = sym.Symbol('theta0')  #build a symbol of theta
 theta1 = sym.Symbol('theta1')
 theta2 = sym.Symbol('theta2')
 theta3 = sym.Symbol('theta3')
@@ -75,17 +78,19 @@ for i in range(0,4):
     T1 = T1*DHconvention(alpha[i], a[i], theta[i], d[i])
     
 Tp=np.mat([0,0,0,1]).T
-end_effector = (T1*Tp)[0:3]
-
-"""To find Jacobian"""
+end_effector = (T1*Tp)[0:3]    #get the FK
 
 
+
+#differential
 """
 Jacobian = [diff(Px,theta_1), diff(Px,theta_2), diff(Px,theta_3), diff(Px,theta_4);
             diff(Py,theta_1), diff(Py,theta_2), diff(Py,theta_3), diff(Py,theta_4);
             diff(Pz,theta_1), diff(Pz,theta_2), diff(Pz,theta_3), diff(Pz,theta_4)];
 """
-Jacobian=np.zeros((3,4),dtype=sym.Function)
+
+
+Jacobian=np.zeros((3,4),dtype=sym.Function)  
 Jacobian[0]=[end_effector[0,0].diff(theta0),end_effector[0,0].diff(theta1),
              end_effector[0,0].diff(theta2),end_effector[0,0].diff(theta3)]
 
@@ -96,24 +101,35 @@ Jacobian[2]=[end_effector[2,0].diff(theta0),end_effector[2,0].diff(theta1),
              end_effector[2,0].diff(theta2),end_effector[2,0].diff(theta3)]
     
 
-theta=[270.0,270.0,0.0,270.0]
-distance=1; 
+theta=[270.0,270.0,0.0,270.0] #original point 
+
+distance=1;  # as long as dis> 0.001
+
+
 while(times<100 and distance>0.001 ):
     times +=1
+    
+    #get the value of Jacobian
     Jacobian_value =sym.lambdify((theta0,theta1,theta2,theta3),Matrix(Jacobian))   
     Jacobian_temp = Jacobian_value(theta[0],theta[1],theta[2],theta[3])
     
+    #get the value of end_effector
     end_effector_value = sym.lambdify((theta0,theta1,theta2,theta3),Matrix(end_effector))
     end_effector_temp=end_effector_value(theta[0],theta[1],theta[2],theta[3])        
     
+    #pesudo-inverse Jacobian
     Jacobian_in =np.linalg.pinv(Jacobian_temp)
     
+    #get Delat e
     err_matrix = [[Target[0]-end_effector_temp[0][0]],
                    [Target[1]-end_effector_temp[1][0]],
                     [Target[2]-end_effector_temp[2][0]]]
                     
+    #delta theta = pesudo_J * err             
     delta_theta=np.dot(Jacobian_in,err_matrix)
     delta_theta=np.array(delta_theta).tolist()
+    
+    #theta(n+1) =theta(n)+delta theta*step
     for i in range(0,4):
             temp = (1*delta_theta[i][0])
             theta[i] = (theta[i] +temp)%360
@@ -122,6 +138,9 @@ while(times<100 and distance>0.001 ):
                 
             if(theta[i]>theta_limit[i][1]):
                 theta[i] = theta_limit[i][1]
+
+    
+    #distance between target and orignal points
     distance = np.sqrt((Target[0]-end_effector_temp[0][0])**2+
             (Target[1]-end_effector_temp[1][0])**2 +
             (Target[2]-end_effector_temp[2][0])**2)
@@ -135,6 +154,7 @@ fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 ax.plot(xNode,yNode,zNode)               
 #ax.scatter(xNode,yNode,zNode) 
+ax.plot([0,0],[0,15],[31,16])
     
             
     
